@@ -1,0 +1,73 @@
+{
+  "apiVersion": "reasonix.io/plugin/v2",
+  "name": "xiaod-pet",
+  "version": "1.0.0",
+  "description": "小D 像素桌宠：把 Reasonix 的工作状态显示成头顶云朵 + 对应动作",
+  "contributes": {
+    "hooks": {
+      "SessionStart": [
+        {
+          "command": "pyw",
+          "args": ["hooks/notify.py"],
+          "description": "小D：会话开始 [xiaod-pet]",
+          "timeout": 3000,
+          "async": true
+        }
+      ],
+      "UserPromptSubmit": [
+        {
+          "command": "pyw",
+          "args": ["hooks/notify.py"],
+          "description": "小D：开始思考 [xiaod-pet]",
+          "timeout": 3000,
+          "async": true
+        }
+      ],
+      "PreToolUse": [
+        {
+          "command": "pyw",
+          "args": ["hooks/notify.py"],
+          "description": "小D：工具调用 [xiaod-pet]",
+          "timeout": 3000,
+          "async": true
+        }
+      ],
+      "PostToolUse": [
+        {
+          "command": "pyw",
+          "args": ["hooks/notify.py"],
+          "description": "小D：工具结束 [xiaod-pet]",
+          "timeout": 3000,
+          "async": true
+        }
+      ],
+      "PermissionRequest": [
+        {
+          "command": "pyw",
+          "args": ["hooks/notify.py"],
+          "description": "小D：需要你确认 [xiaod-pet]",
+          "timeout": 3000,
+          "async": true
+        }
+      ],
+      "Stop": [
+        {
+          "command": "pyw",
+          "args": ["hooks/notify.py"],
+          "description": "小D：本轮结束 [xiaod-pet]",
+          "timeout": 3000,
+          "async": true
+        }
+      ],
+      "SessionEnd": [
+        {
+          "command": "pyw",
+          "args": ["hooks/notify.py"],
+          "description": "小D：会话结束 [xiaod-pet]",
+          "timeout": 3000,
+          "async": true
+        }
+      ]
+    }
+  }
+}

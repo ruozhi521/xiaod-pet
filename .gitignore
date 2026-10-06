@@ -1,0 +1,15 @@
+# 运行时生成的文件，不该进发布包 / 仓库
+__pycache__/
+*.pyc
+*.pyo
+
+# 运行时状态（由 notify.py / pet.py 自动生成）
+.python-path
+.launch-lock
+.user-quit
+.hook-calls.log
+
+# 系统垃圾
+Thumbs.db
+Desktop.ini
+.DS_Store
