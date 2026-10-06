@@ -17,6 +17,14 @@
 
 ## 安装
 
+> **先决条件：本机必须装 Python 3.10+，且 `pythonw` 在 PATH 里。**
+>
+> 插件本身是 Python 写的，RS 通过 `pythonw` 调用它。
+> **没装 Python 的话插件会静默失效**（桌面不出现小D，也不报错）。
+>
+> 验证：打开 PowerShell 输入 `pythonw --version`，能输出版本号才算通过。
+> 装 Python 时**务必勾选 "Add Python to PATH"**。
+
 ```
 reasonix plugin install <本目录> --yes
 ```
@@ -142,11 +150,36 @@ curl http://127.0.0.1:31726/status -d "{}"
 
 | 现象 | 原因 / 处理 |
 | --- | --- |
-| 装完没反应 | hooks 不热加载，**重启 Studio 或新开会话** |
-| 提示端口被占用 | 已经有一只小D 在跑（看右下角托盘 / 桌面） |
+| 装完没反应 | hooks 不热加载，**重启 Studio 或新开会话** ← 最常见 |
+| 装完没反应（重启了也不行） | 确认本机装了 Python 且 `pythonw --version` 能输出 |
 | 桌宠起不来 | 多半是没装 Pillow：`pip install Pillow` |
+| 提示端口被占用 | 已经有一只小D 在跑（看右下角托盘 / 桌面） |
 | 状态不更新 | 确认插件已启用：`reasonix plugin list` |
 | 想直接测一次 | `echo '{"event":"PermissionRequest"}' \| python hooks/notify.py` |
+
+### 开诊断日志（排查"到底哪一步卡住"）
+
+```
+set XIAOD_HOOK_LOG=1
+```
+
+设好环境变量后重启 Studio，再随便发一句话。然后看这个文件：
+
+```
+%APPDATA%\reasonix\plugins\xiaod-pet\hooks\.hook-calls.log
+```
+
+它会记下每次 hook 执行走到了哪一步，例如：
+
+```
+01:57:55 ensure_pet: 跳过：桌宠已在跑
+01:58:02 ensure_pet: 跳过：没检测到 Reasonix Studio 进程
+01:58:10 ensure_pet: 已拉起：C:\...\pythonw.exe C:\...\bin\pet.py
+```
+
+> **注意**：`hooks/` 目录下**没有** `.launch-lock` 文件**不能**说明 hook 没跑。
+> 桌宠已经在跑时、或没检测到 RS 时，这个锁本来就不会被创建。
+> 要判断 hook 有没有执行，**请用上面的诊断日志**，别用锁文件。
 
 ## 包内文件
 

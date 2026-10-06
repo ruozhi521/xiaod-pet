@@ -234,8 +234,12 @@ def _rs_running() -> bool:
                 if k32.QueryFullProcessImageNameW(h, 0, buf,
                                                   ctypes.byref(sz)):
                     low = buf.value.lower()
-                    if ('reasonix studio.exe' in low
-                            or 'reasonix-studio-host.exe' in low):
+                    # RS 的进程名都带 "studio"，rx 的没有（reasonix-desktop.exe
+                    # / Reasonix.exe）。两个词一起判断：既容忍 RS 换版本改名，
+                    # 又不会把 rx 误认成 RS（用户要求「只跟 RS」）。
+                    # 之前写死完整进程名，换个版本就认不出 → _ensure_pet 直接
+                    # return，桌宠永远不启动，而 hook 其实一直在跑（踩过这个坑）。
+                    if 'reasonix' in low and 'studio' in low:
                         return True
             finally:
                 k32.CloseHandle(h)
@@ -259,20 +263,42 @@ def _pet_alive() -> bool:
         return False
 
 
+def _diag(step: str) -> None:
+    """排查用：记下 _ensure_pet 走到哪一步、为什么没继续。
+
+    只有设了 XIAOD_HOOK_LOG 才写文件（平时不留垃圾）。
+    **非常重要**：以前排查时误把「.launch-lock 不存在」当成
+    「hook 没跑」，其实守卫提前 return 时也不会创建那个锁。
+    有了这个日志才能分清是「hook 没跑」还是「跑了但被拦」。
+    """
+    if not os.environ.get('XIAOD_HOOK_LOG'):
+        return
+    try:
+        with open(os.path.join(_HERE, '.hook-calls.log'), 'a',
+                  encoding='utf-8') as f:
+            f.write(f'{time.strftime("%H:%M:%S")} ensure_pet: {step}\n')
+    except OSError:
+        pass
+
+
 def _ensure_pet() -> None:
     """把桌宠拉起来（若它不在跑）。失败一律静默 —— 绝不能影响 RS。"""
     if os.path.exists(QUIT):
+        _diag('跳过：用户主动退出过（.user-quit 存在）')
         return
     # 0) RS 不在就别拉 —— 免得 rx（共用配置）把我们拉起来又立刻退
     if not _rs_running():
+        _diag('跳过：没检测到 Reasonix Studio 进程')
         return
     # 1) 已经在跑？直接收工。这一步必须在限流检查之前 ——
     #    否则锁一过期就会重复拉起，弹出"已经在跑了"的框。
     if _pet_alive():
+        _diag('跳过：桌宠已在跑')
         return
     now = time.time()
     try:
         if now - os.path.getmtime(LOCK) < LAUNCH_COOLDOWN:
+            _diag('跳过：限流锁还没过期')
             return          # 刚试过，别连着开
     except OSError:
         pass
@@ -307,6 +333,7 @@ def _ensure_pet() -> None:
             pet = os.path.abspath(cand)
             break
     else:
+        _diag(f'失败：找不到 pet.py（找过 {_HERE}/pet.py 和 ../bin/pet.py）')
         return
     py = sys.executable
     pyw = os.path.join(os.path.dirname(py), 'pythonw.exe')
@@ -324,8 +351,9 @@ def _ensure_pet() -> None:
             [exe, pet], creationflags=flags, close_fds=True, env=env,
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL)
-    except Exception:
-        pass
+        _diag(f'已拉起：{exe} {pet}')
+    except Exception as e:
+        _diag(f'失败：启动进程出错 {e!r}（解释器={exe}）')
 
 
 def main(argv: list[str]) -> int:

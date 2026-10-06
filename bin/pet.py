@@ -153,7 +153,13 @@ def _rs_running() -> bool:
     try:
         for p in psutil.process_iter(['name']):
             n = (p.info.get('name') or '').lower()
-            if n in RS_PROCESSES:
+            # RS 的进程名都带 "studio"（Reasonix Studio.exe /
+            # reasonix-studio-host.exe），而 rx 的是 reasonix-desktop.exe /
+            # Reasonix.exe —— 所以用 "reasonix" + "studio" 两个词一起判断：
+            # 既容忍 RS 换版本改名，又不会误认成 rx。
+            # （之前用精确字符串匹配，换个版本就认不出 → 桌宠启动后 8 秒
+            #   自己退出，比不启动还难查。踩过这个坑。）
+            if ('reasonix' in n and 'studio' in n) or n in RS_PROCESSES:
                 return True
     except Exception:
         return True
