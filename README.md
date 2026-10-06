@@ -1,5 +1,7 @@
 # 小D 桌宠（xiaod-pet）
 
+<img src="docs/hero.png" alt="小D" width="200" align="right">
+
 一个住在桌面上的像素小恐龙。它盯着 **Reasonix Studio** 的会话状态：
 你在干活时它就坐在旁边敲键盘，头顶的云朵显示它以为你在做什么。
 **拖文件到它身上**还能就地转格式（图片 / 音视频 / Word / PPT / Excel）。
@@ -110,6 +112,8 @@ curl http://127.0.0.1:31726/status -d "{}"
 删掉——删了插件只是不再有状态提示，RS 本身不受任何影响。
 
 ## 它有哪些行为
+
+<img src="docs/actions.png" alt="动作：敲键盘 / 查资料 / 灵光一现 / 喝咖啡" width="620">
 
 | 你在干什么 | 云朵显示 | 小D 的动作 |
 | --- | --- | --- |
