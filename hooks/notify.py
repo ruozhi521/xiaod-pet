@@ -200,9 +200,75 @@ def _find_python() -> str:
     return sys.executable or 'pythonw'
 
 
+def _rs_running() -> bool:
+    """Reasonix **Studio** 在不在跑。
+
+    这台机器上还装着另一个应用 rx（`reasonix-desktop.exe`），
+    它和 RS 共用同一个配置目录，所以也会加载本插件、也触发 hooks。
+    但弱志要的是「小D 只跟 RS」—— 所以拉起之前先确认 RS 真在跑，
+    否则 rx 单独工作时会把桌宠拉起来、8 秒后又自己退（看着像闪一下）。
+
+    实现用**纯 ctypes 调 EnumProcesses**，不用 `subprocess + tasklist`：
+    实测 tasklist 从 Python 里调要 ~1085ms（每次工具调用都白等一秒），
+    而 EnumProcesses 只要 ~45ms，快 24 倍，且同样只用标准库。
+    """
+    try:
+        import ctypes
+        from ctypes import wintypes
+        k32 = ctypes.windll.kernel32
+        psapi = ctypes.windll.psapi
+
+        arr = (wintypes.DWORD * 4096)()
+        need = wintypes.DWORD()
+        if not psapi.EnumProcesses(ctypes.byref(arr), ctypes.sizeof(arr),
+                                   ctypes.byref(need)):
+            return True                     # 查不到就别拦
+        n = need.value // ctypes.sizeof(wintypes.DWORD)
+        for i in range(min(n, len(arr))):
+            h = k32.OpenProcess(0x1000, False, arr[i])   # QUERY_LIMITED_INFO
+            if not h:
+                continue
+            try:
+                buf = ctypes.create_unicode_buffer(1024)
+                sz = wintypes.DWORD(1024)
+                if k32.QueryFullProcessImageNameW(h, 0, buf,
+                                                  ctypes.byref(sz)):
+                    low = buf.value.lower()
+                    if ('reasonix studio.exe' in low
+                            or 'reasonix-studio-host.exe' in low):
+                        return True
+            finally:
+                k32.CloseHandle(h)
+        return False
+    except Exception:
+        return True          # 探测失败就别拦（宁可不退，也别误杀）
+
+
+def _pet_alive() -> bool:
+    """桌宠在不在跑 —— 直接探端口，最可靠。
+
+    为什么不能只信 .launch-lock：那个锁只是为了**限流**，
+    过期（120s）后如果只看它就会重复拉起，撞上已在跑的那只，
+    用户会莫名看到一个"小D 已经在跑了"的弹窗（踩过这个坑）。
+    """
+    try:
+        with socket.create_connection((HOST, PORT), timeout=0.25) as s:
+            s.sendall(b'GET /status HTTP/1.0\r\n\r\n')
+        return True
+    except OSError:
+        return False
+
+
 def _ensure_pet() -> None:
     """把桌宠拉起来（若它不在跑）。失败一律静默 —— 绝不能影响 RS。"""
     if os.path.exists(QUIT):
+        return
+    # 0) RS 不在就别拉 —— 免得 rx（共用配置）把我们拉起来又立刻退
+    if not _rs_running():
+        return
+    # 1) 已经在跑？直接收工。这一步必须在限流检查之前 ——
+    #    否则锁一过期就会重复拉起，弹出"已经在跑了"的框。
+    if _pet_alive():
         return
     now = time.time()
     try:
@@ -210,9 +276,25 @@ def _ensure_pet() -> None:
             return          # 刚试过，别连着开
     except OSError:
         pass
+    # 2) 抢锁：hook 是 async 并发的，多个进程可能同时走到这里。
+    #    用 O_CREAT|O_EXCL 保证只有一个能建成功，其余直接退出。
     try:
-        with open(LOCK, 'w', encoding='utf-8') as f:
-            f.write(str(now))
+        fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(fd, str(now).encode())
+        os.close(fd)
+    except FileExistsError:
+        # 别的进程刚抢到锁 —— 但如果它也已经把桌宠拉起来了，就没事
+        if _pet_alive():
+            return
+        # 锁存在但没拉起（可能是陈旧锁）：等它一会儿再看
+        time.sleep(1.2)
+        if _pet_alive():
+            return
+        try:
+            os.utime(LOCK, None)        # 刷新，避免这轮又白试
+        except OSError:
+            pass
+        return
     except OSError:
         return
 
@@ -236,8 +318,10 @@ def _ensure_pet() -> None:
         # DETACHED_PROCESS | CREATE_NO_WINDOW：脱离父进程、不弹黑窗
         flags = 0x00000008 | 0x08000000
     try:
+        env = dict(os.environ)
+        env['XIAOD_SILENT'] = '1'       # 自动拉起别弹窗（用户没做操作）
         subprocess.Popen(
-            [exe, pet], creationflags=flags, close_fds=True,
+            [exe, pet], creationflags=flags, close_fds=True, env=env,
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL)
     except Exception:

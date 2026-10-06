@@ -7,7 +7,7 @@
     "hooks": {
       "SessionStart": [
         {
-          "command": "pyw",
+          "command": "pythonw",
           "args": ["hooks/notify.py"],
           "description": "小D：会话开始 [xiaod-pet]",
           "timeout": 3000,
@@ -16,7 +16,7 @@
       ],
       "UserPromptSubmit": [
         {
-          "command": "pyw",
+          "command": "pythonw",
           "args": ["hooks/notify.py"],
           "description": "小D：开始思考 [xiaod-pet]",
           "timeout": 3000,
@@ -25,7 +25,7 @@
       ],
       "PreToolUse": [
         {
-          "command": "pyw",
+          "command": "pythonw",
           "args": ["hooks/notify.py"],
           "description": "小D：工具调用 [xiaod-pet]",
           "timeout": 3000,
@@ -34,7 +34,7 @@
       ],
       "PostToolUse": [
         {
-          "command": "pyw",
+          "command": "pythonw",
           "args": ["hooks/notify.py"],
           "description": "小D：工具结束 [xiaod-pet]",
           "timeout": 3000,
@@ -43,7 +43,7 @@
       ],
       "PermissionRequest": [
         {
-          "command": "pyw",
+          "command": "pythonw",
           "args": ["hooks/notify.py"],
           "description": "小D：需要你确认 [xiaod-pet]",
           "timeout": 3000,
@@ -52,7 +52,7 @@
       ],
       "Stop": [
         {
-          "command": "pyw",
+          "command": "pythonw",
           "args": ["hooks/notify.py"],
           "description": "小D：本轮结束 [xiaod-pet]",
           "timeout": 3000,
@@ -61,7 +61,7 @@
       ],
       "SessionEnd": [
         {
-          "command": "pyw",
+          "command": "pythonw",
           "args": ["hooks/notify.py"],
           "description": "小D：会话结束 [xiaod-pet]",
           "timeout": 3000,

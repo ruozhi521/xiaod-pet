@@ -114,6 +114,12 @@ TRANSIENT = {'awake', 'done', 'error', 'bye', 'petted'}
 # 工作状态多久没动静就回落成空闲（秒）。
 # 没有这个，一轮结束后会永远停在"正在思考…"。
 IDLE_TIMEOUT = 25.0
+# 动画帧间隔（毫秒）—— 8 帧一个循环，所以 55ms ≈ 18fps。
+# 实测渲染一帧只要 0.1ms（图像和云朵都有缓存），所以这个值纯是节奏、
+# 不是性能上限，调小不会卡。之前在 110ms（约 9fps）显得迟滞。
+# 注意：它同时决定一次性动作（摸头/欢呼）的时长，见 _apply，
+# 所以只在这里改，别在别处再写死一遍。
+FRAME_MS = 55
 # 空闲时也继续算作"工作中"的状态（收到这些就不该回落）
 WORKING = {'thinking', 'think', 'write', 'read', 'run', 'search',
            'plan', 'work', 'organizing'}
@@ -253,10 +259,17 @@ class _SingleInstanceServer(HTTPServer):
 
 
 def _already_running():
-    """已经有小D 在跑：提示一句再退出（pythonw 没控制台，得弹窗）。"""
+    """已经有小D 在跑：提示一句再退出。
+
+    自动拉起（hook 触发）时**不弹窗** —— 那是程序自己启动的，
+    用户没做任何操作，弹个框只会莫名其妙（踩过这个坑：hook 重复拉起
+    时莫名弹出"已经在跑了"）。只有用户手动双击才值得提示。
+    """
     msg = (f'小D 已经在跑了（端口 {PORT} 被占用）。\n\n'
            '请看看桌面右下角的托盘图标 / 桌面上是不是已经有一只。')
     print(msg)
+    if os.environ.get('XIAOD_SILENT'):
+        return
     try:
         import ctypes
         ctypes.windll.user32.MessageBoxW(0, msg, '小D 桌宠', 0x40)
@@ -568,9 +581,9 @@ class Pet(tk.Tk):
         now = time.time()
         if state in TRANSIENT:
             # 一次性动作（摸头/欢呼/问好）：播一轮就回落。
-            # 0.11s/帧（见 _tick），所以一轮 ≈ n*0.11；再多留 1s 余韵。
+            # FRAME_MS/帧（见 _tick），所以一轮 ≈ n*FRAME_MS；再多留 1s 余韵。
             n = len(self.frames.get(STATES[state][1], [1]))
-            self.until = now + max(0.9, n * 0.11) + 1.0
+            self.until = now + max(0.9, n * FRAME_MS / 1000.0) + 1.0
             # 若有 toast 在显示，别让它被这轮动作提前掐断（否则云朵文字和
             # 动作时长对不上 —— 文字还在、状态已经回落了）
             if getattr(self, '_custom_text', None):
@@ -690,7 +703,7 @@ class Pet(tk.Tk):
         if frames:
             self.fi = (self.fi + 1) % len(frames)
         self._render()
-        self.after(110, self._tick)
+        self.after(FRAME_MS, self._tick)
 
     # -------------------------------------------------- 绘制
     def _render(self):
