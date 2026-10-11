@@ -1,71 +1,71 @@
 {
   "apiVersion": "reasonix.io/plugin/v2",
   "name": "xiaod-pet",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "小D 像素桌宠：把 Reasonix 的工作状态显示成头顶云朵 + 对应动作",
   "contributes": {
     "hooks": {
       "SessionStart": [
         {
-          "command": "pythonw",
-          "args": ["hooks/notify.py"],
-          "description": "小D：会话开始 [xiaod-pet]",
+          "command": "pythonw hooks/notify.py || pyw hooks/notify.py || py hooks/notify.py",
+          "shell": "cmd",
           "timeout": 3000,
-          "async": true
+          "async": true,
+          "description": "小D：会话开始"
         }
       ],
       "UserPromptSubmit": [
         {
-          "command": "pythonw",
-          "args": ["hooks/notify.py"],
-          "description": "小D：开始思考 [xiaod-pet]",
+          "command": "pythonw hooks/notify.py || pyw hooks/notify.py || py hooks/notify.py",
+          "shell": "cmd",
           "timeout": 3000,
-          "async": true
+          "async": true,
+          "description": "小D：开始思考"
         }
       ],
       "PreToolUse": [
         {
-          "command": "pythonw",
-          "args": ["hooks/notify.py"],
-          "description": "小D：工具调用 [xiaod-pet]",
+          "command": "pythonw hooks/notify.py || pyw hooks/notify.py || py hooks/notify.py",
+          "shell": "cmd",
           "timeout": 3000,
-          "async": true
+          "async": true,
+          "description": "小D：工具调用"
         }
       ],
       "PostToolUse": [
         {
-          "command": "pythonw",
-          "args": ["hooks/notify.py"],
-          "description": "小D：工具结束 [xiaod-pet]",
+          "command": "pythonw hooks/notify.py || pyw hooks/notify.py || py hooks/notify.py",
+          "shell": "cmd",
           "timeout": 3000,
-          "async": true
+          "async": true,
+          "description": "小D：工具结束"
         }
       ],
       "PermissionRequest": [
         {
-          "command": "pythonw",
-          "args": ["hooks/notify.py"],
-          "description": "小D：需要你确认 [xiaod-pet]",
+          "command": "pythonw hooks/notify.py || pyw hooks/notify.py || py hooks/notify.py",
+          "shell": "cmd",
           "timeout": 3000,
-          "async": true
+          "async": true,
+          "description": "小D：需要你确认"
         }
       ],
       "Stop": [
         {
-          "command": "pythonw",
-          "args": ["hooks/notify.py"],
-          "description": "小D：本轮结束 [xiaod-pet]",
+          "command": "pythonw hooks/notify.py || pyw hooks/notify.py || py hooks/notify.py",
+          "shell": "cmd",
           "timeout": 3000,
-          "async": true
+          "async": true,
+          "description": "小D：本轮结束"
         }
       ],
       "SessionEnd": [
         {
-          "command": "pythonw",
-          "args": ["hooks/notify.py"],
-          "description": "小D：会话结束 [xiaod-pet]",
+          "command": "pythonw hooks/notify.py || pyw hooks/notify.py || py hooks/notify.py",
+          "shell": "cmd",
           "timeout": 3000,
-          "async": true
+          "async": true,
+          "description": "小D：会话结束"
         }
       ]
     }

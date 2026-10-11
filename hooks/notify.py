@@ -146,21 +146,47 @@ LAUNCH_COOLDOWN = 120                           # 秒：两次拉起尝试的最
 PY_CACHE = os.path.join(_HERE, '.python-path')  # 缓存找到的解释器
 
 
+def _python_ok(exe: str) -> bool:
+    """这个解释器能不能跑 pet.py（要同时有 Pillow 和 tkinter）。
+
+    只 `os.path.exists` 是不够的 —— 本机 PATH 上排前面的
+    D:\\pythonw.exe（3.14）根本没装 PIL，用它拉起 pet.py 会当场崩。
+    所以必须真跑一次导入来验证。"""
+    try:
+        r = subprocess.run(
+            [exe, '-c', 'import PIL, tkinter'],
+            capture_output=True, timeout=8,
+            creationflags=0x08000000 if os.name == 'nt' else 0)
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
 def _find_python() -> str:
     """找一个**装了 Pillow** 的 pythonw（pet.py 需要 PIL/pywin32）。
 
     为什么不能直接用 sys.executable：本机 PATH 上排在前面的是
     D:\\pythonw.exe（3.14），它没装 PIL，拉起 pet.py 会直接崩。
-    所以依次探测候选，挑第一个能 `import PIL` 的，并把结果缓存下来
-    （每次 hook 调用都探测会明显拖慢）。
+    所以依次探测候选，挑第一个能 `import PIL` 的，并把结果缓存下来。
+
+    **缓存必须重新验证**：曾经这里只判断缓存文件存在就返回，
+    结果一个坏缓存（指向没装 PIL 的解释器）会让桌宠永远起不来，
+    而且看不出任何报错 —— 这是"小D 好几天不出现"的根因之一。
+    所以每次都用 _python_ok 真跑一次导入；不通就删掉缓存重新探测。
 
     notify.py 自己只用标准库，所以**任何** Python 都能跑它 ——
     这也是 manifest 里可以用可移植的 `pyw` 的原因。
     """
     try:
         p = open(PY_CACHE, encoding='utf-8').read().strip()
-        if os.path.exists(p):
+        if p and os.path.exists(p) and _python_ok(p):
             return p
+        if p:
+            # 坏缓存：删掉，免得下次又读到
+            try:
+                os.remove(PY_CACHE)
+            except OSError:
+                pass
     except OSError:
         pass
 
@@ -171,32 +197,27 @@ def _find_python() -> str:
         cands.append(env)
     # 2) 当前解释器同目录（用户就是用它跑起来的）
     if sys.executable:
-        cands.append(os.path.join(os.path.dirname(sys.executable),
-                                  'pythonw.exe'))
+        d = os.path.dirname(sys.executable)
+        cands.append(os.path.join(d, 'pythonw.exe'))
+        cands.append(sys.executable)
     # 3) 常见安装位置 + PATH 上的启动器
     cands += [
         r'C:\Program Files\Python311\pythonw.exe',
         r'C:\Program Files\Python312\pythonw.exe',
         r'C:\Program Files\Python313\pythonw.exe',
         r'C:\Program Files\Python310\pythonw.exe',
-        'pythonw', 'python', 'pyw', 'py',
+        r'C:\Program Files\Python39\pythonw.exe',
+        'pythonw', 'python',
     ]
 
     for c in cands:
-        try:
-            r = subprocess.run(
-                [c, '-c', 'import PIL, tkinter'],
-                capture_output=True, timeout=8,
-                creationflags=0x08000000 if os.name == 'nt' else 0)
-            if r.returncode == 0:
-                try:
-                    with open(PY_CACHE, 'w', encoding='utf-8') as f:
-                        f.write(c)
-                except OSError:
-                    pass
-                return c
-        except Exception:
-            continue
+        if _python_ok(c):
+            try:
+                with open(PY_CACHE, 'w', encoding='utf-8') as f:
+                    f.write(c)
+            except OSError:
+                pass
+            return c
     return sys.executable or 'pythonw'
 
 
