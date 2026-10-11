@@ -58,7 +58,7 @@ git rev-parse HEAD
 | 字段 | 填什么 |
 | --- | --- |
 | Name | `xiaod-pet` |
-| Version | `1.0.0`（要和 `reasonix-plugin.json` 一致） |
+| Version | `1.0.1`（**必须**和 `reasonix-plugin.json` 里的 `version` 完全一致） |
 | Fixed source | 上面那个 **commit 锁定的 GitHub tree URL** |
 | Summary | 一句话：`Reasonix Studio 的像素桌宠：状态云朵 + 拖文件转格式` |
 | Description | 见 `README.md` 的内容 |
