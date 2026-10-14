@@ -107,3 +107,19 @@ git rev-parse HEAD
 3. **Office 转 PDF 后要 `gc.collect()`**，否则 WINWORD 进程会残留。
 4. **依赖要在 README 里写清**：必需 Pillow/tkinter；
    可选 pywin32/psutil/pystray/openpyxl/python-docx/win32com+Office/ffmpeg。
+5. **状态文件必须有生命周期，不能只创建不删除**。踩过一个致命的：
+   `.launch-lock` 只为限流而建，却从不删除。RS 一更新（→ RS 重启 →
+   `pet.py` 检测到 RS 消失后自杀），锁却留在磁盘上；下次 hook 撞上
+   `FileExistsError` 时只刷新时间戳就 return，于是**永远不再拉起桌宠**
+   —— 表现是"每次 RS 更新后小D 就再也不出现"，且完全无报错。
+   修法：撞锁时先确认进程真的没在跑，再把陈旧锁删掉重抢。
+   → 凡是 `O_CREAT|O_EXCL` 的锁，都要配一条"陈旧锁自愈"路径。
+6. **hook 的 manifest 写法：用 shell form，不要用 exec form**。
+   RS 更新后 `{"command":"pythonw","args":["hooks/notify.py"]}` 这种
+   exec form **不再被执行**（静默失效，无任何日志）。改成
+   `{"command":"pythonw hooks/notify.py || pyw hooks/notify.py || py hooks/notify.py","shell":"cmd"}`
+   才生效。二分实验实测：exec form ❌ / shell form ✅。
+7. **排查 hook 时，`.launch-lock` 和"日志无记录"都不是判据**。
+   守卫提前 return 时同样不建锁；而诊断日志默认是关的（要设
+   `XIAOD_HOOK_LOG=1` 才写）。要用**进程探针**（记录 hook 由哪个父进程
+   启动）来判断 hook 到底有没有跑 —— 这个坑我踩过两次。
