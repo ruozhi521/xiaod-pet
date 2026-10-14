@@ -1,7 +1,7 @@
 {
   "apiVersion": "reasonix.io/plugin/v2",
   "name": "xiaod-pet",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "小D 像素桌宠：把 Reasonix 的工作状态显示成头顶云朵 + 对应动作",
   "contributes": {
     "hooks": {

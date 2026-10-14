@@ -317,33 +317,51 @@ def _ensure_pet() -> None:
         _diag('跳过：桌宠已在跑')
         return
     now = time.time()
+    # 限流：距上次"尝试拉起"不足 LAUNCH_COOLDOWN 就先不试，
+    # 免得 hook 每跑一次就开一个进程。
     try:
         if now - os.path.getmtime(LOCK) < LAUNCH_COOLDOWN:
             _diag('跳过：限流锁还没过期')
-            return          # 刚试过，别连着开
+            return
     except OSError:
         pass
-    # 2) 抢锁：hook 是 async 并发的，多个进程可能同时走到这里。
-    #    用 O_CREAT|O_EXCL 保证只有一个能建成功，其余直接退出。
-    try:
-        fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        os.write(fd, str(now).encode())
-        os.close(fd)
-    except FileExistsError:
-        # 别的进程刚抢到锁 —— 但如果它也已经把桌宠拉起来了，就没事
-        if _pet_alive():
-            return
-        # 锁存在但没拉起（可能是陈旧锁）：等它一会儿再看
-        time.sleep(1.2)
-        if _pet_alive():
-            return
+    # 2) 抢锁：hook 是异步并发的，多个进程可能同时走到这里。
+    #    用 O_CREAT|O_EXCL 保证只有一个能建成功。
+    #
+    #    ⚠️ 这里曾经有个致命 bug：锁只在"拉起"时创建，之后**从不删除**。
+    #    桌宠一死（例如 RS 重启 → pet.py 检测到 RS 消失、8 秒后自杀），
+    #    锁却留了下来。下次 hook 走到这里撞上 FileExistsError，
+    #    老代码只把锁"刷新"一下就 return —— 于是**永远不再尝试拉起**。
+    #    表现就是"RS 每次更新后小D 就再也不出现"。
+    #    实测：陈旧锁场景下连调 3 次都拉不起来。
+    #    修法：确认桌宠确实没在跑时，把陈旧锁删掉重新抢一次；抢到就继续拉起。
+    for attempt in (1, 2):
         try:
-            os.utime(LOCK, None)        # 刷新，避免这轮又白试
+            fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(now).encode())
+            os.close(fd)
+            break
+        except FileExistsError:
+            if attempt == 2:
+                _diag('跳过：抢锁失败（另一进程正在拉起）')
+                return
+            # 可能是并发争抢，也可能是"上次拉起后没留下活桌宠"的陈旧锁
+            if _pet_alive():
+                _diag('跳过：桌宠已在跑')
+                return
+            time.sleep(0.8)
+            if _pet_alive():
+                _diag('跳过：桌宠已在跑')
+                return
+            # 桌宠确实不在跑 → 锁是陈旧的，删掉重抢
+            try:
+                os.remove(LOCK)
+                _diag('清掉陈旧锁，重新尝试拉起')
+            except OSError:
+                pass
         except OSError:
-            pass
-        return
-    except OSError:
-        return
+            _diag('跳过：无法创建锁文件')
+            return
 
     # 桌宠本体位置：兼容两种布局
     #   · 插件包里：hooks/notify.py  ->  ../bin/pet.py
